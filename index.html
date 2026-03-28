@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityClean | Waste Mapping & Community Awareness</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js Assets -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --primary: #1A6B47;
+            --primary-light: #2d8a5f;
+            --secondary: #0D9488;
+            --accent: #F59E0B;
+            --bg-color: #F0FDF4;
+            --text-dark: #0F172A;
+            --text-light: #64748b;
+            --white: #ffffff;
+            --glass: rgba(255, 255, 255, 0.85);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, .logo {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .section-padding {
+            padding: 100px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary { background-color: var(--primary); color: var(--white); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .btn-accent { background-color: var(--accent); color: var(--white); }
+        .btn-outline { border: 2px solid var(--primary); color: var(--primary); background: transparent; }
+        .btn-outline:hover { background: var(--primary); color: var(--white); }
+
+        .section-title { text-align: center; margin-bottom: 60px; }
+        .section-title h2 { font-size: 2.5rem; color: var(--primary); margin-bottom: 10px; }
+
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s ease-out; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* Navbar */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1001;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(26, 107, 71, 0.1);
+            padding: 15px 0;
+        }
+
+        .nav-content { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-links a { text-decoration: none; color: var(--text-dark); font-weight: 500; font-size: 0.95rem; }
+        .nav-links a:hover, .nav-links a.active { color: var(--secondary); }
+        .hamburger { display: none; cursor: pointer; flex-direction: column; gap: 5px; }
+        .hamburger span { width: 25px; height: 3px; background: var(--primary); border-radius: 3px; }
+
+        /* Hero */
+        #home {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+            overflow: hidden;
+            padding-top: 80px;
+        }
+
+        .hero-particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .particle { position: absolute; background: rgba(26, 107, 71, 0.05); border-radius: 50%; animation: float 20s infinite linear; }
+        @keyframes float { 0% { transform: translateY(0); } 100% { transform: translateY(-100vh); } }
+
+        .hero-content { text-align: center; position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+        .hero-content h1 { font-size: clamp(2.5rem, 8vw, 4.5rem); color: var(--primary); margin-bottom: 20px; }
+        .hero-btns { display: flex; gap: 20px; justify-content: center; margin-bottom: 60px; }
+
+        .live-stats-bar {
+            background: var(--white);
+            padding: 20px;
+            border-radius: 100px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        /* Problem Section */
+        .problem-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; }
+        .problem-card { background: var(--white); padding: 40px; border-radius: 20px; box-shadow: var(--shadow); transition: var(--transition); }
+        .problem-card:hover { transform: translateY(-10px); }
+        .problem-card .icon { font-size: 2.5rem; margin-bottom: 20px; display: block; }
+
+        /* MAP SECTION STYLES */
+        .map-wrapper {
+            position: relative;
+            background: var(--white);
+            border-radius: 24px;
+            padding: 15px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        #leafletMap {
+            height: 500px;
+            width: 100%;
+            border-radius: 16px;
+            z-index: 1;
+        }
+        .map-controls {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-group { display: flex; gap: 10px; }
+        .filter-btn {
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            background: var(--white);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: var(--transition);
+        }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* Map Legend Overlay */
+        .map-legend-card {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: white;
+            padding: 12px 18px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .legend-item { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; font-weight: 600; margin: 4px 0; }
+        .color-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        /* Report Form */
+        .report-wrapper { max-width: 800px; margin: 0 auto; background: var(--white); padding: 40px; border-radius: 24px; box-shadow: var(--shadow); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group.full { grid-column: span 2; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit; }
+        .radio-group { display: flex; gap: 15px; margin-top: 5px; }
+
+        /* Tabs & Events */
+        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 40px; }
+        .tab-btn { padding: 12px 24px; border: none; background: #e2e8f0; border-radius: 50px; cursor: pointer; font-weight: 600; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .event-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
+        .event-card { background: var(--white); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); }
+        .event-body { padding: 25px; }
+        .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: var(--secondary); transition: width 1s; }
+
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 30px; text-align: center; margin-bottom: 50px; }
+        .stat-card h3 { font-size: 3rem; color: var(--primary); }
+
+        /* Footer */
+        footer { background: var(--text-dark); color: var(--white); padding: 80px 0 40px; }
+        .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; }
+        .footer-links { list-style: none; margin-top: 20px; }
+        .footer-links li { margin-bottom: 10px; color: #94a3b8; }
+
+        #toast { position: fixed; bottom: 30px; right: 30px; background: #10b981; color: white; padding: 16px 30px; border-radius: 12px; transform: translateY(150px); transition: 0.5s; z-index: 2000; }
+        #toast.show { transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hamburger { display: flex; }
+            .form-grid { grid-template-columns: 1fr; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="container nav-content">
+            <a href="#" class="logo">🌿 CityClean</a>
+            <div class="hamburger" id="menuToggle">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="nav-links" id="navLinks">
+                <a href="#home">Home</a>
+                <a href="#map">Waste Map</a>
+                <a href="#report">Report Issue</a>
+                <a href="#recycle">Recycle Guide</a>
+                <a href="#events">Events</a>
+                <a href="#dashboard">Impact</a>
+                <a href="#report" class="btn btn-accent" style="color: white;">Report Now</a>
+            </div>
+        </div>
+    </nav>
+
+    <section id="home">
+        <div class="hero-particles" id="particles"></div>
+        <div class="container">
+            <div class="hero-content reveal">
+                <h1>Map It. Report It. <span style="color: var(--secondary);">Clean It.</span></h1>
+                <p>Empowering the citizens of Bhimavaram to build a cleaner, greener community through real-time waste reporting.</p>
+                <div class="hero-btns">
+                    <a href="#report" class="btn btn-primary">Report a Waste Issue</a>
+                    <a href="#map" class="btn btn-outline">View Live Map</a>
+                </div>
+                <div class="live-stats-bar">
+                    <div class="stat-item">2,340 Reports</div>
+                    <div class="stat-item">87 Resolved</div>
+                    <div class="stat-item">142 Events</div>
+                    <div class="stat-item">5,200+ Citizens</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="problem" class="section-padding container">
+        <div class="section-title reveal">
+            <h2>Why CityClean?</h2>
+            <p>Solving the waste crisis through community data.</p>
+        </div>
+        <div class="problem-grid">
+            <div class="problem-card reveal">
+                <span class="icon">🗑️</span>
+                <h3>Public Waste</h3>
+                <p>Identify uncollected garbage in public spaces before it becomes a health hazard.</p>
+            </div>
+            <div class="problem-card reveal">
+                <span class="icon">🚯</span>
+                <h3>Illegal Dumping</h3>
+                <p>Pinpoint exact coordinates of illegal disposal sites for municipal action.</p>
+            </div>
+            <div class="problem-card reveal">
+                <span class="icon">❌</span>
+                <h3>Reporting Gaps</h3>
+                <p>No more long waits on phone lines. Report issues in under 60 seconds.</p>
+            </div>
+            <div class="problem-card reveal">
+                <span class="icon">📊</span>
+                <h3>Smart Data</h3>
+                <p>Help authorities optimize pickup routes based on real community needs.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- MAP SECTION -->
+    <section id="map" class="section-padding container">
+        <div class="section-title reveal">
+            <h2>Live Waste Hotspot Map</h2>
+            <p>Real-time community reports from across Bhimavaram.</p>
+        </div>
+        
+        <div class="map-controls reveal">
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">All Reports</button>
+                <button class="filter-btn" data-filter="critical">Critical</button>
+                <button class="filter-btn" data-filter="moderate">Moderate</button>
+                <button class="filter-btn" data-filter="resolved">Resolved</button>
+            </div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-light);">
+                Showing: <span id="markerCount">10</span> Reports in Bhimavaram
+            </div>
+        </div>
+
+        <div class="map-wrapper reveal">
+            <div id="leafletMap"></div>
+            
+            <div class="map-legend-card">
+                <div class="legend-item"><div class="color-dot" style="background: #EF4444;"></div> Critical</div>
+                <div class="legend-item"><div class="color-dot" style="background: #F59E0B;"></div> Moderate</div>
+                <div class="legend-item"><div class="color-dot" style="background: #10B981;"></div> Resolved</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="report" class="section-padding" style="background: #f8fafc;">
+        <div class="container">
+            <div class="section-title reveal">
+                <h2>Report a Waste Issue</h2>
+                <p>Found a hotspot? Fill the form to pin it on the map.</p>
+            </div>
+            
+            <div class="report-wrapper reveal">
+                <form id="reportForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Your Name</label>
+                            <input type="text" id="reporterName" placeholder="e.g. Rajesh Kumar" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Info</label>
+                            <input type="text" id="contact" placeholder="Email or Phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Specific Location</label>
+                            <input type="text" id="locName" placeholder="e.g. Near SRKR Engineering College" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Type of Waste</label>
+                            <select id="issueType" required>
+                                <option value="Overflowing Bin">Overflowing Bin</option>
+                                <option value="Illegal Dump Site">Illegal Dump Site</option>
+                                <option value="Hazardous Waste">Hazardous Waste</option>
+                                <option value="Uncollected Garbage">Uncollected Garbage</option>
+                            </select>
+                        </div>
+                        <div class="form-group full">
+                            <label>Severity Level</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="severity" value="moderate" checked> Moderate</label>
+                                <label><input type="radio" name="severity" value="critical"> Critical</label>
+                            </div>
+                        </div>
+                        <div class="form-group full">
+                            <label>Short Description</label>
+                            <textarea id="description" rows="3" placeholder="Describe the issue..."></textarea>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Submit & Map Report</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section id="recycle" class="section-padding container">
+        <div class="section-title reveal">
+            <h2>Recycle Right</h2>
+            <p>Know your bins. Save the planet.</p>
+        </div>
+        <div class="tabs reveal">
+            <button class="tab-btn active" data-tab="what">What to Recycle</button>
+            <button class="tab-btn" data-tab="segregate">Segregation Guide</button>
+        </div>
+
+        <div id="what" class="tab-content active">
+            <div class="problem-card" style="text-align:center">
+                <span style="font-size:3rem">📄</span>
+                <h4>Paper</h4>
+                <p>Clean cardboard, office paper, and newsprint.</p>
+            </div>
+            <div class="problem-card" style="text-align:center">
+                <span style="font-size:3rem">🧴</span>
+                <h4>Plastic</h4>
+                <p>HDPE bottles and PET containers (rinsed).</p>
+            </div>
+            <div class="problem-card" style="text-align:center">
+                <span style="font-size:3rem">🍎</span>
+                <h4>Organic</h4>
+                <p>Food scraps and garden waste for composting.</p>
+            </div>
+        </div>
+
+        <div id="segregate" class="tab-content">
+            <div class="problem-card" style="grid-column: 1/-1">
+                <h4>Color Coding Standard</h4>
+                <p>🟢 Green: Wet/Organic | 🔵 Blue: Dry/Recyclable | 🔴 Red: Hazardous</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="events" class="section-padding container">
+        <div class="section-title reveal">
+            <h2>Clean-Up Drives</h2>
+            <p>Join local volunteers in Bhimavaram.</p>
+        </div>
+        <div class="event-grid">
+            <div class="event-card reveal">
+                <div class="event-body">
+                    <span style="color:var(--accent); font-weight:bold">March 28, 2025</span>
+                    <h3>Prakasam Chowk Sweep</h3>
+                    <p>Community cleaning drive at the main junction.</p>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 70%"></div></div>
+                    <button class="btn btn-outline join-event" style="width:100%">Join (24/30)</button>
+                </div>
+            </div>
+            <div class="event-card reveal">
+                <div class="event-body">
+                    <span style="color:var(--accent); font-weight:bold">April 05, 2025</span>
+                    <h3>Canal Road Clean</h3>
+                    <p>Removing plastic from the canal periphery.</p>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 40%"></div></div>
+                    <button class="btn btn-outline join-event" style="width:100%">Join (12/30)</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="dashboard" class="section-padding" style="background: white;">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card reveal">
+                    <h3 class="counter" data-target="2340">0</h3>
+                    <p>Reports</p>
+                </div>
+                <div class="stat-card reveal">
+                    <h3 class="counter" data-target="87">0</h3>
+                    <p>Resolved</p>
+                </div>
+                <div class="stat-card reveal">
+                    <h3 class="counter" data-target="38">0</h3>
+                    <p>Tons Collected</p>
+                </div>
+                <div class="stat-card reveal">
+                    <h3 class="counter" data-target="5200">0</h3>
+                    <p>Volunteers</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container footer-grid">
+            <div>
+                <a href="#" class="logo" style="color:white">🌿 CityClean</a>
+                <p style="color:#94a3b8; margin-top:15px">Empowering Bhimavaram's youth and citizens for a sustainable future.</p>
+            </div>
+            <div>
+                <h4>Links</h4>
+                <ul class="footer-links">
+                    <li>Map</li>
+                    <li>Reports</li>
+                    <li>Privacy</li>
+                </ul>
+            </div>
+            <div>
+                <h4>Contact</h4>
+                <ul class="footer-links">
+                    <li>Bhimavaram, AP</li>
+                    <li>info@cityclean.in</li>
+                </ul>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:50px; color:#64748b; font-size:0.8rem">
+            © 2025 CityClean. 1M1B Green Internship Project.
+        </div>
+    </footer>
+
+    <div id="toast">✅ Report added to the live map!</div>
+
+    <script>
+        // --- LEAFLET MAP LOGIC ---
+        const bhimavaramCoords = [16.5449, 81.5212];
+        const map = L.map('leafletMap').setView(bhimavaramCoords, 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Realistic Fake Data
+        let wasteReports = [
+            { lat: 16.5480, lng: 81.5250, title: "Market Area", type: "Overflowing Bin", severity: "critical", date: "2025-03-20", status: "Pending" },
+            { lat: 16.5410, lng: 81.5180, title: "SRKR Road", type: "Illegal Dump", severity: "moderate", date: "2025-03-21", status: "In Progress" },
+            { lat: 16.5520, lng: 81.5320, title: "Bus Stand Exit", type: "Uncollected Garbage", severity: "critical", date: "2025-03-19", status: "Pending" },
+            { lat: 16.5440, lng: 81.5120, title: "Residential Sector A", type: "Overflowing Bin", severity: "resolved", date: "2025-03-15", status: "Resolved" },
+            { lat: 16.5350, lng: 81.5220, title: "Railway Gate", type: "Hazardous Waste", severity: "critical", date: "2025-03-22", status: "Pending" },
+            { lat: 16.5490, lng: 81.5050, title: "College Canal", type: "Illegal Dump", severity: "moderate", date: "2025-03-22", status: "Pending" },
+            { lat: 16.5580, lng: 81.5280, title: "North Suburb", type: "Uncollected Garbage", severity: "resolved", date: "2025-03-10", status: "Resolved" },
+            { lat: 16.5320, lng: 81.5350, title: "Industrial Lane", type: "Hazardous Waste", severity: "critical", date: "2025-03-23", status: "Pending" },
+            { lat: 16.5455, lng: 81.5265, title: "Main Chowk", type: "Overflowing Bin", severity: "moderate", date: "2025-03-23", status: "Pending" },
+            { lat: 16.5420, lng: 81.5400, title: "Park View", type: "Uncollected Garbage", severity: "moderate", date: "2025-03-24", status: "Pending" }
+        ];
+
+        let markerLayer = L.layerGroup().addTo(map);
+
+        function getMarkerColor(sev) {
+            if (sev === 'critical') return '#EF4444';
+            if (sev === 'moderate') return '#F59E0B';
+            return '#10B981';
+        }
+
+        function renderMarkers(filter = 'all') {
+            markerLayer.clearLayers();
+            let count = 0;
+            wasteReports.forEach(report => {
+                if (filter !== 'all' && report.severity !== filter) return;
+                
+                count++;
+                const marker = L.circleMarker([report.lat, report.lng], {
+                    radius: 10,
+                    fillColor: getMarkerColor(report.severity),
+                    color: "#fff",
+                    weight: 2,
+                    fillOpacity: 0.9
+                });
+
+                marker.bindPopup(`
+                    <div style="font-family:'DM Sans', sans-serif">
+                        <h4 style="margin-bottom:5px">📍 ${report.title}</h4>
+                        <p style="font-size:12px; margin:2px 0">🗑️ <b>Issue:</b> ${report.type}</p>
+                        <p style="font-size:12px; margin:2px 0">⚠️ <b>Severity:</b> ${report.severity.toUpperCase()}</p>
+                        <p style="font-size:12px; margin:2px 0">📅 <b>Date:</b> ${report.date}</p>
+                        <p style="font-size:12px; margin:2px 0">🔄 <b>Status:</b> ${report.status}</p>
+                    </div>
+                `);
+                markerLayer.addLayer(marker);
+            });
+            document.getElementById('markerCount').innerText = count;
+        }
+
+        renderMarkers();
+
+        // Filter functionality
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('.filter-btn.active').classList.remove('active');
+                btn.classList.add('active');
+                renderMarkers(btn.dataset.filter);
+            });
+        });
+
+        // Form Submission Logic
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newReport = {
+                lat: 16.5449 + (Math.random() - 0.5) * 0.01, // Random offset near center
+                lng: 81.5212 + (Math.random() - 0.5) * 0.01,
+                title: document.getElementById('locName').value,
+                type: document.getElementById('issueType').value,
+                severity: document.querySelector('input[name="severity"]:checked').value,
+                date: new Date().toISOString().split('T')[0],
+                status: "Pending"
+            };
+
+            wasteReports.push(newReport);
+            renderMarkers();
+            
+            // Show Toast
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+            
+            // Scroll to Map to show the new marker
+            document.getElementById('map').scrollIntoView();
+            this.reset();
+        });
+
+        // --- GENERAL UI LOGIC ---
+
+        // Reveal Animations
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    if (entry.target.classList.contains('counter')) startCounter(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal, .counter').forEach(el => revealObserver.observe(el));
+
+        function startCounter(el) {
+            const target = +el.dataset.target;
+            const update = () => {
+                const count = +el.innerText.replace(',', '');
+                const inc = target / 100;
+                if (count < target) {
+                    el.innerText = Math.ceil(count + inc).toLocaleString();
+                    setTimeout(update, 20);
+                } else {
+                    el.innerText = target.toLocaleString();
+                }
+            };
+            update();
+        }
+
+        // Tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('.tab-btn.active').classList.remove('active');
+                document.querySelector('.tab-content.active').classList.remove('active');
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Hamburger
+        document.getElementById('menuToggle').addEventListener('click', () => {
+            document.getElementById('navLinks').style.display = 
+                document.getElementById('navLinks').style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        // Particles
+        const partContainer = document.getElementById('particles');
+        for (let i = 0; i < 15; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.width = Math.random() * 30 + 'px';
+            p.style.height = p.style.width;
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.top = Math.random() * 100 + 'vh';
+            p.style.animationDelay = Math.random() * 5 + 's';
+            partContainer.appendChild(p);
+        }
+    </script>
+</body>
+</html>
